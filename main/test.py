@@ -23,7 +23,7 @@ from gen_batch import generate_batch
 from dataset import Dataset
 from nms.nms import oks_nms
 
-def test_net(tester, dets, det_range, gpu_id):
+def test_net(tester, dets, det_range, gpu_id, the_dataset):
 
     dump_results = []
 
@@ -139,7 +139,7 @@ def test_net(tester, dets, det_range, gpu_id):
         kps_result = kps_result.reshape(-1,cfg.num_kps*3)
        
         # rescoring and oks nms
-        if cfg.dataset == 'COCO':
+        if cfg.dataset == the_dataset:
             rescored_score = np.zeros((len(score_result)))
             for i in range(len(score_result)):
                 score_mask = score_result[i] > cfg.score_thr
@@ -160,7 +160,7 @@ def test_net(tester, dets, det_range, gpu_id):
         
         # save result
         for i in range(len(kps_result)):
-            if cfg.dataset == 'COCO':
+            if cfg.dataset == the_dataset:
                 result = dict(image_id=im_info['image_id'], category_id=1, score=float(round(score_result[i], 4)),
                              keypoints=kps_result[i].round(3).tolist())
             elif cfg.dataset == 'PoseTrack':
@@ -175,7 +175,7 @@ def test_net(tester, dets, det_range, gpu_id):
     return dump_results
 
 
-def test(test_model):
+def test(test_model, the_dataset):
     
     # annotation load
     d = Dataset()
@@ -223,7 +223,7 @@ def test(test_model):
         tester = Tester(Model(), cfg)
         tester.load_weights(test_model)
         range = [ranges[gpu_id], ranges[gpu_id + 1]]
-        return test_net(tester, dets, range, gpu_id)
+        return test_net(tester, dets, range, gpu_id, the_dataset)
 
     MultiGPUFunc = MultiProc(len(args.gpu_ids.split(',')), func)
     result = MultiGPUFunc.work()
@@ -236,6 +236,7 @@ if __name__ == '__main__':
         parser = argparse.ArgumentParser()
         parser.add_argument('--gpu', type=str, dest='gpu_ids')
         parser.add_argument('--test_epoch', type=str, dest='test_epoch')
+        parser.add_argument('--dataset', type=str, dest='dataset_name')
         args = parser.parse_args()
 
         # test gpus
@@ -253,4 +254,5 @@ if __name__ == '__main__':
 
     global args
     args = parse_args()
-    test(int(args.test_epoch))
+    ourdataset = args.dataset_name
+    test(int(args.test_epoch), ourdataset)
